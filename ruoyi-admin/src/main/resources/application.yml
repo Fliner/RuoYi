@@ -70,6 +70,13 @@ spring:
       # 热部署开关
       enabled: true
 
+  # RuoYi-Process 模块
+  # 解决启动报错：class path resource [processes/] cannot be resolved to URL because it does not exist
+  activiti:
+    check-process-definitions: false
+    # 检测身份信息表是否存在
+    db-identity-used: false
+
 # MyBatis
 mybatis:
     # 搜索指定包别名
@@ -96,7 +103,7 @@ shiro:
     # 首页地址
     indexUrl: /index
     # 验证码开关
-    captchaEnabled: true
+    captchaEnabled: false
     # 验证码类型 math 数组计算 char 字符
     captchaType: math
   cookie:

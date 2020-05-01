@@ -78,6 +78,13 @@
             <groupId>com.ruoyi</groupId>
             <artifactId>ruoyi-generator</artifactId>
         </dependency>
+
+        <!-- 流程模块 -->
+        <dependency>
+            <groupId>com.ruoyi.process</groupId>
+            <artifactId>ruoyi-process</artifactId>
+            <version>4.2.0</version>
+        </dependency>
         
     </dependencies>
 

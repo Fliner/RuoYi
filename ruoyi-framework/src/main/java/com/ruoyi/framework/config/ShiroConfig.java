@@ -259,6 +259,9 @@ public class ShiroConfig
         // 系统权限列表
         // filterChainDefinitionMap.putAll(SpringUtils.getBean(IMenuService.class).selectPermsAll());
 
+        //process modeler 放行
+        filterChainDefinitionMap.put("/modeler/**", "anon");
+
         Map<String, Filter> filters = new LinkedHashMap<String, Filter>();
         filters.put("onlineSession", onlineSessionFilter());
         filters.put("syncOnlineSession", syncOnlineSessionFilter());

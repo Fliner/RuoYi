@@ -32,7 +32,9 @@ public class MimeTypeUtils
             // 压缩文件
             "rar", "zip", "gz", "bz2",
             // pdf
-            "pdf" };
+            "pdf",
+            // BPMN (zip 格式在上面)
+            "bpmn", "bar"};
 
     public static String getExtension(String prefix)
     {
