@@ -2,7 +2,7 @@
 <!DOCTYPE mapper
 PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.ruoyi.process.leave.mapper.BizLeaveMapper">
+<mapper namespace="com.ruoyi.process.business.leave.mapper.BizLeaveMapper">
 
     <resultMap type="BizLeaveVo" id="BizLeaveResult">
         <result property="id"    column="id"    />
