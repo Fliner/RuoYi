@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.process.business.purchase.mapper.BizPurchaseProductMapper">
+    
+    <resultMap type="BizPurchaseProduct" id="BizPurchaseProductResult">
+        <result property="id"    column="ID"    />
+        <result property="purchaseId"    column="PURCHASE_ID"    />
+        <result property="productId"    column="PRODUCT_ID"    />
+    </resultMap>
+
+    <sql id="selectBizPurchaseProductVo">
+        select ID, PURCHASE_ID, PRODUCT_ID from biz_purchase_product
+    </sql>
+
+    <select id="selectBizPurchaseProductList" parameterType="BizPurchaseProduct" resultMap="BizPurchaseProductResult">
+        <include refid="selectBizPurchaseProductVo"/>
+        <where>  
+            <if test="purchaseId != null "> and PURCHASE_ID = #{purchaseId}</if>
+            <if test="productId != null "> and PRODUCT_ID = #{productId}</if>
+        </where>
+    </select>
+    
+    <select id="selectBizPurchaseProductById" parameterType="Long" resultMap="BizPurchaseProductResult">
+        <include refid="selectBizPurchaseProductVo"/>
+        where ID = #{id}
+    </select>
+        
+    <insert id="insertBizPurchaseProduct" parameterType="BizPurchaseProduct" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_purchase_product
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="purchaseId != null ">PURCHASE_ID,</if>
+            <if test="productId != null ">PRODUCT_ID,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="purchaseId != null ">#{purchaseId},</if>
+            <if test="productId != null ">#{productId},</if>
+         </trim>
+    </insert>
+
+    <update id="updateBizPurchaseProduct" parameterType="BizPurchaseProduct">
+        update biz_purchase_product
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="purchaseId != null ">PURCHASE_ID = #{purchaseId},</if>
+            <if test="productId != null ">PRODUCT_ID = #{productId},</if>
+        </trim>
+        where ID = #{id}
+    </update>
+
+    <delete id="deleteBizPurchaseProductById" parameterType="Long">
+        delete from biz_purchase_product where ID = #{id}
+    </delete>
+
+    <delete id="deleteBizPurchaseProductByIds" parameterType="String">
+        delete from biz_purchase_product where ID in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+</mapper>

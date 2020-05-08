@@ -1,8 +1,12 @@
 package com.ruoyi.process.business.general.controller;
 
 import com.ruoyi.common.core.controller.BaseController;
+import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.framework.util.ShiroUtils;
+import com.ruoyi.process.business.config.ICustomProcessDiagramGenerator;
+import com.ruoyi.process.business.config.WorkflowConstants;
 import com.ruoyi.process.business.general.domain.HistoricActivity;
 import com.ruoyi.process.business.general.service.IProcessService;
 import org.activiti.bpmn.model.BpmnModel;
@@ -19,18 +23,20 @@ import org.activiti.engine.impl.persistence.entity.ProcessDefinitionEntity;
 import org.activiti.engine.repository.ProcessDefinition;
 import org.activiti.engine.repository.ProcessDefinitionQuery;
 import org.activiti.engine.runtime.ProcessInstance;
-import org.activiti.image.ProcessDiagramGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletResponse;
+import java.awt.*;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/process/business/general")
@@ -157,10 +163,17 @@ public class ProcessController extends BaseController {
                 // 获取流程走过的线 (getHighLightedFlows是下面的方法)
                 flowIds = getHighLightedFlows(bpmnModel,processDefinition, historicActivityInstanceList);
 
-                // 获取流程图图像字符流
-                ProcessDiagramGenerator pec = processEngine.getProcessEngineConfiguration().getProcessDiagramGenerator();
-                //配置字体
-                InputStream imageStream = pec.generateDiagram(bpmnModel, "png", executedActivityIdList, flowIds,"宋体","微软雅黑","黑体",null,2.0);
+//                // 获取流程图图像字符流
+//                ProcessDiagramGenerator pec = processEngine.getProcessEngineConfiguration().getProcessDiagramGenerator();
+//                //配置字体
+//                InputStream imageStream = pec.generateDiagram(bpmnModel, "png", executedActivityIdList, flowIds,"宋体","微软雅黑","黑体",null,2.0);
+
+                Set<String> currIds = runtimeService.createExecutionQuery().processInstanceId(pProcessInstanceId).list()
+                        .stream().map(e->e.getActivityId()).collect(Collectors.toSet());
+
+                ICustomProcessDiagramGenerator diagramGenerator = (ICustomProcessDiagramGenerator) processEngine.getProcessEngineConfiguration().getProcessDiagramGenerator();
+                InputStream imageStream = diagramGenerator.generateDiagram(bpmnModel, "png", executedActivityIdList,
+                        flowIds, "宋体", "宋体", "宋体", null, 1.0, new Color[] { WorkflowConstants.COLOR_NORMAL, WorkflowConstants.COLOR_CURRENT }, currIds);
 
                 response.setContentType("image/png");
                 OutputStream os = response.getOutputStream();
@@ -180,7 +193,7 @@ public class ProcessController extends BaseController {
         }
     }
 
-    public List<String> getHighLightedFlows(BpmnModel bpmnModel,ProcessDefinitionEntity processDefinitionEntity,List<HistoricActivityInstance> historicActivityInstances) {
+    private List<String> getHighLightedFlows(BpmnModel bpmnModel, ProcessDefinitionEntity processDefinitionEntity, List<HistoricActivityInstance> historicActivityInstances) {
         SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"); //24小时制
         List<String> highFlows = new ArrayList<String>();// 用以保存高亮的线flowId
 
@@ -244,6 +257,27 @@ public class ProcessController extends BaseController {
     public String processImg(@PathVariable("instanceId") String instanceId, ModelMap mmap) {
         mmap.put("instanceId", instanceId);
         return prefix + "/processImg";
+    }
+
+    @PostMapping("/delegate")
+    @ResponseBody
+    public AjaxResult delegate(String taskId, String delegateToUser) {
+        processService.delegate(taskId, ShiroUtils.getLoginName(), delegateToUser);
+        return success();
+    }
+
+    @PostMapping( "/cancelApply")
+    @ResponseBody
+    public AjaxResult cancelApply(String instanceId) {
+        processService.cancelApply(instanceId, "用户撤销");
+        return success();
+    }
+
+    @PostMapping( "/suspendOrActiveApply")
+    @ResponseBody
+    public AjaxResult suspendOrActiveApply(String instanceId, String suspendState) {
+        processService.suspendOrActiveApply(instanceId, suspendState);
+        return success();
     }
 
 }

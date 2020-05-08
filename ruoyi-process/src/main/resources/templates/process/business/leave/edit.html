@@ -74,6 +74,7 @@
     <th:block th:include="include :: footer" />
     <th:block th:include="include :: datetimepicker-js" />
     <th:block th:include="include :: select2-js" />
+    <script th:src="@{/js/activiti.js}"></script>
     <script th:inline="javascript">
         var prefix = ctx + "process/business/leave";
         $("#form-leave-edit").validate({
@@ -102,16 +103,16 @@
                 return;
             }
             if (validateStartTimeAndEndTime()) {
-                var totalSecond = $.common.calcTotalSecond($('input[name="startTime"]').val(), $('input[name="endTime"]').val());
+                var totalSecond = calcTotalSecond($('input[name="startTime"]').val(), $('input[name="endTime"]').val());
                 $('input[name="totalTime"]').val(totalSecond);
-                var dateSub = $.common.formatTotalDateSub(totalSecond);
+                var dateSub = formatTotalDateSub(totalSecond);
                 $('input[name="totalTimeText"]').val(dateSub);
             }
         });
 
         $(function () {
             var leave = [[${bizLeave}]];
-            var dateSub = $.common.formatTotalDateSub(leave.totalTime);
+            var dateSub = formatTotalDateSub(leave.totalTime);
             $('input[name="totalTimeText"]').val(dateSub);
         });
 

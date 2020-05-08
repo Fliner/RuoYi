@@ -41,6 +41,7 @@
         </div>
     </div>
     <th:block th:include="include :: footer" />
+     <script th:src="@{/js/activiti.js}"></script>
     <script th:inline="javascript">
         var editFlag = [[${@permission.hasPermi('process:leave:edit')}]];
         var removeFlag = [[${@permission.hasPermi('process:leave:remove')}]];
@@ -93,7 +94,7 @@
                     title : '请假时长',
                     formatter: function(value, row, index) {
                         if (!value) return '未知';
-                        return $.common.formatTotalDateSub(value);
+                        return formatTotalDateSub(value);
                     }
                 },
                 {
@@ -142,24 +143,6 @@
             $.table.init(options);
         });
 
-        function submitApply(id) {
-            $.modal.confirm("确认要提交申请吗?", function() {
-                var url = prefix + "/submitApply";
-                var data = { "id": id };
-                $.operate.submit(url, "post", "json", data);
-            });
-        }
-
-        function showVerifyDialog(taskId, taskName) {
-            var url = prefix + "/showVerifyDialog/" + taskId;
-            $.modal.open(taskName, url);
-        }
-
-        /* 查看审批历史 */
-        function showHistoryDialog(instanceId) {
-            var url = ctx + 'process/general/historyList/' + instanceId;
-            $.modal.open("查看审批历史", url);
-        }
     </script>
 </body>
 </html>

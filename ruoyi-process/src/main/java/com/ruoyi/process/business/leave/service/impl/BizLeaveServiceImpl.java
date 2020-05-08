@@ -7,21 +7,21 @@ import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.util.ShiroUtils;
+import com.ruoyi.process.business.general.service.IProcessService;
 import com.ruoyi.process.business.leave.domain.BizLeaveVo;
 import com.ruoyi.process.business.leave.mapper.BizLeaveMapper;
 import com.ruoyi.process.business.leave.service.IBizLeaveService;
-import com.ruoyi.process.business.todoitem.domain.BizTodoItem;
-import com.ruoyi.process.business.todoitem.service.IBizTodoItemService;
 import com.ruoyi.system.domain.SysUser;
 import com.ruoyi.system.mapper.SysUserMapper;
 import org.activiti.engine.HistoryService;
-import org.activiti.engine.IdentityService;
 import org.activiti.engine.RuntimeService;
 import org.activiti.engine.TaskService;
 import org.activiti.engine.history.HistoricProcessInstance;
 import org.activiti.engine.history.HistoricTaskInstance;
+import org.activiti.engine.impl.persistence.entity.TaskEntityImpl;
 import org.activiti.engine.runtime.ProcessInstance;
 import org.activiti.engine.task.Task;
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,24 +42,16 @@ import java.util.Map;
 public class BizLeaveServiceImpl implements IBizLeaveService {
     @Autowired
     private BizLeaveMapper bizLeaveMapper;
-
-    @Autowired
-    private IdentityService identityService;
-
     @Autowired
     private RuntimeService runtimeService;
-
     @Autowired
     private TaskService taskService;
-
     @Autowired
     private HistoryService historyService;
-
     @Autowired
     private SysUserMapper userMapper;
-
     @Autowired
-    private IBizTodoItemService bizTodoItemService;
+    private IProcessService processService;
 
     /**
      * 查询请假业务
@@ -108,11 +100,18 @@ public class BizLeaveServiceImpl implements IBizLeaveService {
 //                        .singleResult();
                         .list();    // 例如请假会签，会同时拥有多个任务
                 if (!CollectionUtils.isEmpty(taskList)) {
-                    Task task = taskList.get(0);
+                    TaskEntityImpl task = (TaskEntityImpl) taskList.get(0);
                     leave.setTaskId(task.getId());
-                    leave.setTaskName(task.getName());
+                    if (task.getSuspensionState() == 2) {
+                        leave.setTaskName("已挂起");
+                        leave.setSuspendState("2");
+                    } else {
+                        leave.setTaskName(task.getName());
+                        leave.setSuspendState("1");
+                    }
                 } else {
-                    leave.setTaskName("已办结");
+                    // 已办结或者已撤销
+                    leave.setTaskName("已结束");
                 }
             } else {
                 leave.setTaskName("未启动");
@@ -135,6 +134,8 @@ public class BizLeaveServiceImpl implements IBizLeaveService {
     public int insertBizLeave(BizLeaveVo bizLeave) {
         bizLeave.setCreateBy(ShiroUtils.getLoginName());
         bizLeave.setCreateTime(DateUtils.getNowDate());
+        bizLeave.setApplyUser(ShiroUtils.getLoginName());
+        bizLeave.setApplyTime(DateUtils.getNowDate());
         return bizLeaveMapper.insertBizLeave(bizLeave);
     }
 
@@ -179,24 +180,18 @@ public class BizLeaveServiceImpl implements IBizLeaveService {
      * @return
      */
     @Override
-    public ProcessInstance submitApply(BizLeaveVo entity, String applyUserId) {
+    public ProcessInstance submitApply(BizLeaveVo entity, String applyUserId, String key, Map<String, Object> variables) {
         entity.setApplyUser(applyUserId);
         entity.setApplyTime(DateUtils.getNowDate());
         entity.setUpdateBy(applyUserId);
         bizLeaveMapper.updateBizLeave(entity);
         String businessKey = entity.getId().toString(); // 实体类 ID，作为流程的业务 key
 
-        // 用来设置启动流程的人员ID，引擎会自动把用户ID保存到activiti:initiator中
-        identityService.setAuthenticatedUserId(applyUserId);
+        ProcessInstance processInstance = processService.submitApply(applyUserId, businessKey, entity.getTitle(), entity.getReason(), key, variables);
 
-        ProcessInstance processInstance = runtimeService // 启动流程时设置业务 key
-                .startProcessInstanceByKey("leave", businessKey);
         String processInstanceId = processInstance.getId();
         entity.setInstanceId(processInstanceId); // 建立双向关系
         bizLeaveMapper.updateBizLeave(entity);
-
-        // 下一节点处理人待办事项
-        bizTodoItemService.insertTodoItem(processInstanceId, entity, "leave");
 
         return processInstance;
     }
@@ -204,87 +199,55 @@ public class BizLeaveServiceImpl implements IBizLeaveService {
     /**
      * 查询待办任务
      */
-    @Transactional(readOnly = true)
-    public List<BizLeaveVo> findTodoTasks(BizLeaveVo leave, String userId) {
+    public Page<BizLeaveVo> findTodoTasks(BizLeaveVo leave, String userId) {
+        // 手动分页
+        PageDomain pageDomain = TableSupport.buildPageRequest();
+        Integer pageNum = pageDomain.getPageNum();
+        Integer pageSize = pageDomain.getPageSize();
+        Page<BizLeaveVo> list = new Page<>();
+
         List<BizLeaveVo> results = new ArrayList<>();
-        List<Task> tasks = new ArrayList<Task>();
-
-        // 根据当前人的ID查询
-        List<Task> todoList = taskService.createTaskQuery().processDefinitionKey("leave").taskAssignee(userId).list();
-
-        // 根据当前人未签收的任务
-        List<Task> unsignedTasks = taskService.createTaskQuery().processDefinitionKey("leave").taskCandidateUser(userId).list();
-
-        // 合并
-        tasks.addAll(todoList);
-        tasks.addAll(unsignedTasks);
-
+        List<Task> tasks = processService.findTodoTasks(userId, "leave");
         // 根据流程的业务ID查询实体并关联
         for (Task task : tasks) {
-            String processInstanceId = task.getProcessInstanceId();
-
+            TaskEntityImpl taskImpl = (TaskEntityImpl) task;
+            String processInstanceId = taskImpl.getProcessInstanceId();
             // 条件过滤 1
             if (StringUtils.isNotBlank(leave.getInstanceId()) && !leave.getInstanceId().equals(processInstanceId)) {
                 continue;
             }
-
             ProcessInstance processInstance = runtimeService.createProcessInstanceQuery().processInstanceId(processInstanceId).singleResult();
             String businessKey = processInstance.getBusinessKey();
             BizLeaveVo leave2 = bizLeaveMapper.selectBizLeaveById(new Long(businessKey));
-
             // 条件过滤 2
-            if (StringUtils.isNotBlank(leave.getType()) && !leave.getType().equals(leave2.getType())) {
-                continue;
+//            if (StringUtils.isNotBlank(leave.getType()) && !leave.getType().equals(leave2.getType())) {
+//                continue;
+//            }
+            leave2.setTaskId(taskImpl.getId());
+            if (taskImpl.getSuspensionState() == 2) {
+                leave2.setTaskName("已挂起");
+            } else {
+                leave2.setTaskName(taskImpl.getName());
             }
-
-            leave2.setTaskId(task.getId());
-            leave2.setTaskName(task.getName());
-
             SysUser sysUser = userMapper.selectUserByLoginName(leave2.getApplyUser());
             leave2.setApplyUserName(sysUser.getUserName());
-
             results.add(leave2);
         }
-        return results;
-    }
 
-    /**
-     * 完成任务
-     * @param leave
-     * @param saveEntity
-     * @param taskId
-     * @param variables
-     */
-    @Override
-    public void complete(BizLeaveVo leave, Boolean saveEntity, String taskId, Map<String, Object> variables) {
-        if (saveEntity) {
-            bizLeaveMapper.updateBizLeave(leave);
-        }
-        // 只有签收任务，act_hi_taskinst 表的 assignee 字段才不为 null
-        taskService.claim(taskId, ShiroUtils.getLoginName());
-        taskService.complete(taskId, variables);
-
-        // 更新待办事项状态
-        BizTodoItem query = new BizTodoItem();
-        query.setTaskId(taskId);
-        // 考虑到候选用户组，会有多个 todoitem 办理同个 task
-        List<BizTodoItem> updateList = CollectionUtils.isEmpty(bizTodoItemService.selectBizTodoItemList(query)) ? null : bizTodoItemService.selectBizTodoItemList(query);
-        for (BizTodoItem update: updateList) {
-            // 找到当前登录用户的 todoitem，置为已办
-            if (update.getTodoUserId().equals(ShiroUtils.getLoginName())) {
-                update.setIsView("1");
-                update.setIsHandle("1");
-                update.setHandleUserId(ShiroUtils.getLoginName());
-                update.setHandleUserName(ShiroUtils.getSysUser().getUserName());
-                update.setHandleTime(DateUtils.getNowDate());
-                bizTodoItemService.updateBizTodoItem(update);
-            } else {
-                bizTodoItemService.deleteBizTodoItemById(update.getId()); // 删除候选用户组其他 todoitem
-            }
+        List<BizLeaveVo> tempList;
+        if (pageNum != null && pageSize != null) {
+            int maxRow = Math.min((pageNum - 1) * pageSize + pageSize, results.size());
+            tempList = results.subList((pageNum - 1) * pageSize, maxRow);
+            list.setTotal(results.size());
+            list.setPageNum(pageNum);
+            list.setPageSize(pageSize);
+        } else {
+            tempList = results;
         }
 
-        // 下一节点处理人待办事项
-        bizTodoItemService.insertTodoItem(leave.getInstanceId(), leave, "leave");
+        list.addAll(tempList);
+
+        return list;
     }
 
     /**
@@ -294,45 +257,53 @@ public class BizLeaveServiceImpl implements IBizLeaveService {
      * @return
      */
     @Override
-    public List<BizLeaveVo> findDoneTasks(BizLeaveVo bizLeave, String userId) {
+    public Page<BizLeaveVo> findDoneTasks(BizLeaveVo bizLeave, String userId) {
+        // 手动分页
+        PageDomain pageDomain = TableSupport.buildPageRequest();
+        Integer pageNum = pageDomain.getPageNum();
+        Integer pageSize = pageDomain.getPageSize();
+        Page<BizLeaveVo> list = new Page<>();
+
         List<BizLeaveVo> results = new ArrayList<>();
-        List<HistoricTaskInstance> list = historyService.createHistoricTaskInstanceQuery()
-                .processDefinitionKey("leave")
-                .taskAssignee(userId)
-                .finished()
-                .orderByHistoricTaskInstanceEndTime()
-                .desc()
-                .list();
-
+        List<HistoricTaskInstance> hisList = processService.findDoneTasks(userId, "leave");
         // 根据流程的业务ID查询实体并关联
-        for (HistoricTaskInstance instance : list) {
+        for (HistoricTaskInstance instance : hisList) {
             String processInstanceId = instance.getProcessInstanceId();
-
             // 条件过滤 1
             if (StringUtils.isNotBlank(bizLeave.getInstanceId()) && !bizLeave.getInstanceId().equals(processInstanceId)) {
                 continue;
             }
-
             HistoricProcessInstance processInstance = historyService.createHistoricProcessInstanceQuery().processInstanceId(processInstanceId).singleResult();
-
             String businessKey = processInstance.getBusinessKey();
             BizLeaveVo leave2 = bizLeaveMapper.selectBizLeaveById(new Long(businessKey));
-
+            BizLeaveVo newLeave = new BizLeaveVo();
+            BeanUtils.copyProperties(leave2, newLeave);
             // 条件过滤 2
             if (StringUtils.isNotBlank(bizLeave.getType()) && !bizLeave.getType().equals(leave2.getType())) {
                 continue;
             }
-
-            leave2.setTaskId(instance.getId());
-            leave2.setTaskName(instance.getName());
-            leave2.setDoneTime(instance.getEndTime());
-
+            newLeave.setTaskId(instance.getId());
+            newLeave.setTaskName(instance.getName());
+            newLeave.setDoneTime(instance.getEndTime());
             SysUser sysUser = userMapper.selectUserByLoginName(leave2.getApplyUser());
-            leave2.setApplyUserName(sysUser.getUserName());
-
-            results.add(leave2);
+            newLeave.setApplyUserName(sysUser.getUserName());
+            results.add(newLeave);
         }
-        return results;
+
+        List<BizLeaveVo> tempList;
+        if (pageNum != null && pageSize != null) {
+            int maxRow = (pageNum - 1) * pageSize + pageSize > results.size() ? results.size() : (pageNum - 1) * pageSize + pageSize;
+            tempList = results.subList((pageNum - 1) * pageSize, maxRow);
+            list.setTotal(results.size());
+            list.setPageNum(pageNum);
+            list.setPageSize(pageSize);
+        } else {
+            tempList = results;
+        }
+
+        list.addAll(tempList);
+
+        return list;
     }
 
 }

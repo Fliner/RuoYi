@@ -56,6 +56,7 @@
     </div>
     <th:block th:include="include :: footer" />
      <th:block th:include="include :: select2-js" />
+     <script th:src="@{/js/activiti.js}"></script>
     <script th:inline="javascript">
         var editFlag = [[${@permission.hasPermi('process:leave:edit')}]];
         var removeFlag = [[${@permission.hasPermi('process:leave:remove')}]];
@@ -111,7 +112,7 @@
                     title : '请假时长',
                     formatter: function(value, row, index) {
                         if (!value) return '未知';
-                        return $.common.formatTotalDateSub(value);
+                        return formatTotalDateSub(value);
                     }
                 },
                 {
@@ -162,13 +163,19 @@
                     formatter: function(value, row, index) {
                         var actions = [];
                         if (row.instanceId) {
-                            actions.push('<a class="btn btn-primary btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="$.operate.detail(\'' + row.id + '\')"><i class="fa fa-eye"></i> 表单数据</a> ');
-                            actions.push('<a class="btn btn-warning btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="showHistoryDialog(\'' + row.instanceId + '\')"><i class="fa fa-list"></i> 审批历史</a> ');
-                            actions.push('<a class="btn btn-info btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="showProcessImgDialog(\'' + row.instanceId + '\')"><i class="fa fa-image"></i> 进度查看</a> ');
+                            actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="$.operate.detail(\'' + row.id + '\')"><i class="fa fa-eye"></i> 表单数据</a> ');
+                            actions.push('<a class="btn btn-warning btn-xs" href="javascript:void(0)" onclick="showHistoryDialog(\'' + row.instanceId + '\')"><i class="fa fa-list"></i> 审批历史</a> ');
+                            actions.push('<a class="btn btn-info btn-xs" href="javascript:void(0)" onclick="showProcessImgDialog(\'' + row.instanceId + '\')"><i class="fa fa-image"></i> 进度查看</a> ');
+                            if (row.taskName.indexOf('已结束') === -1) {
+                                actions.push('<a class="btn btn-danger btn-xs" href="javascript:void(0)" onclick="cancelApply(\'' + row.instanceId + '\',\'' + row.createBy + '\')"><i class="fa fa-times"></i> 撤销</a> ');
+                                var suspendOrActive = row.suspendState === '2' ? '激活' : '挂起';
+                                var icon = row.suspendState === '2' ? 'fa fa-check' : 'fa fa-stop';
+                                actions.push('<a class="btn btn-warning btn-xs" href="javascript:void(0)" onclick="suspendOrActiveApply(\'' + row.instanceId + '\',\'' + row.createBy + '\',\'' + row.suspendState + '\')"><i class="' + icon + '"></i> ' + suspendOrActive + '</a> ');
+                            }
                         } else {
                             actions.push('<a class="btn btn-success btn-xs" href="javascript:void(0)" onclick="submitApply(\'' + row.id + '\',\'' + row.createBy + '\')"><i class="fa fa-user"></i> 提交申请</a> ');
-                            actions.push('<a class="btn btn-primary btn-xs ' + editFlag + '" href="javascript:void(0)" onclick="editForm(\'' + row.id + '\',\'' + row.createBy + '\')"><i class="fa fa-edit"></i> 编辑</a> ');
-                            actions.push('<a class="btn btn-danger btn-xs ' + removeFlag + '" href="javascript:void(0)" onclick="removeForm(\'' + row.id + '\',\'' + row.createBy + '\')"><i class="fa fa-remove"></i> 删除</a>');
+                            actions.push('<a class="btn btn-primary btn-xs" href="javascript:void(0)" onclick="editForm(\'' + row.id + '\',\'' + row.createBy + '\')"><i class="fa fa-edit"></i> 编辑</a> ');
+                            actions.push('<a class="btn btn-danger btn-xs" href="javascript:void(0)" onclick="removeForm(\'' + row.id + '\',\'' + row.createBy + '\')"><i class="fa fa-remove"></i> 删除</a>');
                         }
                         return actions.join('');
                     }
@@ -203,17 +210,6 @@
                 return;
             }
             $.operate.remove(id);
-        }
-
-        /* 查看审批历史 */
-        function showHistoryDialog(instanceId) {
-            var url = ctx + 'process/general/historyList/' + instanceId;
-            $.modal.open("查看审批历史", url);
-        }
-
-        function showProcessImgDialog(instanceId) {
-            var url = ctx + 'process/general/processImg/' + instanceId;
-            $.modal.open("查看流程图 (标红表示已结束或活动中的流程)", url);
         }
     </script>
 </body>

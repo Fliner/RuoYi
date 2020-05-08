@@ -2,6 +2,7 @@ package com.ruoyi.process.business.todoitem.domain;
 
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
+import lombok.Data;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
@@ -13,6 +14,7 @@ import java.util.Date;
  * @author Xianlu Tech
  * @date 2019-11-08
  */
+@Data
 public class BizTodoItem extends BaseEntity {
     private static final long serialVersionUID = 1L;
 
@@ -34,6 +36,10 @@ public class BizTodoItem extends BaseEntity {
     /** 任务 ID */
     @Excel(name = "任务 ID")
     private String taskId;
+
+    /** 流程实例 ID */
+    @Excel(name = "流程实例 ID")
+    private String instanceId;
 
     /** 任务名称 (必须以表单页面名称一致) */
     @Excel(name = "任务名称")
@@ -75,130 +81,4 @@ public class BizTodoItem extends BaseEntity {
     @Excel(name = "处理时间", width = 30, dateFormat = "yyyy-MM-dd")
     private Date handleTime;
 
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getId() {
-        return id;
-    }
-    public void setItemName(String itemName) {
-        this.itemName = itemName;
-    }
-
-    public String getItemName() {
-        return itemName;
-    }
-    public void setItemContent(String itemContent) {
-        this.itemContent = itemContent;
-    }
-
-    public String getItemContent() {
-        return itemContent;
-    }
-    public void setModule(String module) {
-        this.module = module;
-    }
-
-    public String getModule() {
-        return module;
-    }
-    public void setTaskId(String taskId) {
-        this.taskId = taskId;
-    }
-
-    public String getTaskId() {
-        return taskId;
-    }
-    public void setTaskName(String taskName) {
-        this.taskName = taskName;
-    }
-
-    public String getNodeName() {
-        return nodeName;
-    }
-
-    public void setNodeName(String nodeName) {
-        this.nodeName = nodeName;
-    }
-
-    public String getTaskName() {
-        return taskName;
-    }
-    public void setIsView(String isView) {
-        this.isView = isView;
-    }
-
-    public String getIsView() {
-        return isView;
-    }
-    public void setIsHandle(String isHandle) {
-        this.isHandle = isHandle;
-    }
-
-    public String getIsHandle() {
-        return isHandle;
-    }
-    public void setTodoUserId(String todoUserId) {
-        this.todoUserId = todoUserId;
-    }
-
-    public String getTodoUserId() {
-        return todoUserId;
-    }
-    public void setTodoUserName(String todoUserName) {
-        this.todoUserName = todoUserName;
-    }
-
-    public String getTodoUserName() {
-        return todoUserName;
-    }
-    public void setHandleUserId(String handleUserId) {
-        this.handleUserId = handleUserId;
-    }
-
-    public String getHandleUserId() {
-        return handleUserId;
-    }
-    public void setHandleUserName(String handleUserName) {
-        this.handleUserName = handleUserName;
-    }
-
-    public String getHandleUserName() {
-        return handleUserName;
-    }
-    public void setTodoTime(Date todoTime) {
-        this.todoTime = todoTime;
-    }
-
-    public Date getTodoTime() {
-        return todoTime;
-    }
-    public void setHandleTime(Date handleTime) {
-        this.handleTime = handleTime;
-    }
-
-    public Date getHandleTime() {
-        return handleTime;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
-            .append("id", getId())
-            .append("itemName", getItemName())
-            .append("itemContent", getItemContent())
-            .append("module", getModule())
-            .append("taskId", getTaskId())
-            .append("taskName", getTaskName())
-            .append("isView", getIsView())
-            .append("isHandle", getIsHandle())
-            .append("todoUserId", getTodoUserId())
-            .append("todoUserName", getTodoUserName())
-            .append("handleUserId", getHandleUserId())
-            .append("handleUserName", getHandleUserName())
-            .append("todoTime", getTodoTime())
-            .append("handleTime", getHandleTime())
-            .toString();
-    }
 }

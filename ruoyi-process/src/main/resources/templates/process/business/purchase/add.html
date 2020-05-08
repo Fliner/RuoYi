@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh" xmlns:th="http://www.thymeleaf.org" >
+<head>
+    <th:block th:include="include :: header('新增采购流程')" />
+    <th:block th:include="include :: datetimepicker-css" />
+</head>
+<body class="white-bg">
+    <div class="wrapper wrapper-content animated fadeInRight ibox-content">
+        <form class="form-horizontal m" id="form-purchase-add">
+            <input type="hidden" name="productIds">
+            <div class="form-group">
+                <label class="col-sm-3 control-label">标题：</label>
+                <div class="col-sm-8">
+                    <input name="title" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">金额：</label>
+                <div class="col-sm-8">
+                    <input name="amount" class="form-control" type="text">
+                </div>
+            </div>
+            <!--div class="form-group">
+                <label class="col-sm-3 control-label">流程实例ID：</label>
+                <div class="col-sm-8">
+                    <input name="instanceId" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">申请人：</label>
+                <div class="col-sm-8">
+                    <input name="applyUser" class="form-control" type="text">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="col-sm-3 control-label">申请时间：</label>
+                <div class="col-sm-8">
+                    <div class="input-group date">
+                        <span class="input-group-addon"><i class="fa fa-calendar"></i></span>
+                        <input name="applyTime" class="form-control" placeholder="yyyy-MM-dd" type="text">
+                    </div>
+                </div>
+            </div-->
+            <div class="container-div">
+                <div class="btn-group-sm" id="toolbar" role="group">
+                    <a class="btn btn-success" onclick="openProductList()">
+                        <i class="fa fa-plus"></i> 新增产品
+                    </a>
+                    <a class="btn btn-danger multiple disabled" onclick="removeRow()">
+                        <i class="fa fa-remove"></i> 删除产品
+                    </a>
+                </div>
+                <div class="row">
+                    <div class="col-sm-12 select-table table-striped">
+                        <table id="bootstrap-table"></table>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+    <th:block th:include="include :: footer" />
+    <th:block th:include="include :: datetimepicker-js" />
+    <script th:inline="javascript">
+        var prefix = ctx + "process/business/purchase"
+        var datas = [[${@dict.getType('sys_normal_disable')}]];
+
+        $(function() {
+            var options = {
+                showSearch: false,
+                showRefresh: false,
+                showToggle: false,
+                showColumns: false,
+                pagination: false,
+                uniqueId: "id",
+                height: 400,
+                columns: [{
+                    checkbox: true
+                },
+                    {
+                        field : 'id',
+                        title : '产品ID'
+                    },
+                    {
+                        field : 'name',
+                        title : '产品名称'
+                    }]
+            };
+            $.table.init(options);
+        });
+
+        function openProductList(){
+            $.modal.open("选择产品", prefix + "/product");
+        }
+
+        function insertRow(insertRow) {
+            $("#" + table.options.id).bootstrapTable('insertRow', {
+                index: 0, // 你想插入到哪，0表示第一行
+                row: insertRow
+            })
+        }
+
+        /* 删除指定表格行 */
+        function removeRow(){
+            var ids = $.table.selectColumns("id");
+            if (ids.length == 0) {
+                $.modal.alertWarning("请至少选择一条记录");
+                return;
+            }
+            $("#" + table.options.id).bootstrapTable('remove', {
+                field: 'id',
+                values: ids
+            })
+        }
+
+        $("#form-purchase-add").validate({
+            focusCleanup: true
+        });
+
+        function submitHandler() {
+            if ($.validate.form()) {
+                var datas = $("#" + table.options.id).bootstrapTable('getData');
+                var productIds = [];
+                for (var i = 0; i < datas.length; i++) {
+                    var data = datas[i];
+                    productIds.push(data['id']);
+                }
+                $('#form-purchase-add input[name=productIds]').val(productIds);
+                $.operate.save(prefix + "/add", $('#form-purchase-add').serialize());
+            }
+        }
+
+        $("input[name='applyTime']").datetimepicker({
+            format: "yyyy-mm-dd",
+            minView: "month",
+            autoclose: true
+        });
+    </script>
+</body>
+</html>

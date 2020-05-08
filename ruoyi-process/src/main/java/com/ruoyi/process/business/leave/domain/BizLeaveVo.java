@@ -1,7 +1,10 @@
 package com.ruoyi.process.business.leave.domain;
 
+import lombok.Data;
+
 import java.util.Date;
 
+@Data
 public class BizLeaveVo extends BizLeave {
 
     /** 申请人姓名 */
@@ -19,43 +22,7 @@ public class BizLeaveVo extends BizLeave {
     /** 创建人 */
     private String createUserName;
 
-    public String getApplyUserName() {
-        return applyUserName;
-    }
+    /** 流程实例状态 1 激活 2 挂起 */
+    private String suspendState;
 
-    public void setApplyUserName(String applyUserName) {
-        this.applyUserName = applyUserName;
-    }
-
-    public String getTaskId() {
-        return taskId;
-    }
-
-    public void setTaskId(String taskId) {
-        this.taskId = taskId;
-    }
-
-    public String getTaskName() {
-        return taskName;
-    }
-
-    public void setTaskName(String taskName) {
-        this.taskName = taskName;
-    }
-
-    public Date getDoneTime() {
-        return doneTime;
-    }
-
-    public void setDoneTime(Date doneTime) {
-        this.doneTime = doneTime;
-    }
-
-    public String getCreateUserName() {
-        return createUserName;
-    }
-
-    public void setCreateUserName(String createUserName) {
-        this.createUserName = createUserName;
-    }
 }

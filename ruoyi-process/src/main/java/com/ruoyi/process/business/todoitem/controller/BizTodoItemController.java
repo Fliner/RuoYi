@@ -7,16 +7,8 @@ import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.framework.util.ShiroUtils;
-import com.ruoyi.process.business.leave.domain.BizLeaveVo;
-import com.ruoyi.process.business.leave.service.IBizLeaveService;
 import com.ruoyi.process.business.todoitem.domain.BizTodoItem;
 import com.ruoyi.process.business.todoitem.service.IBizTodoItemService;
-import com.ruoyi.system.domain.SysUser;
-import org.activiti.engine.RuntimeService;
-import org.activiti.engine.TaskService;
-import org.activiti.engine.runtime.ProcessInstance;
-import org.activiti.engine.task.Task;
-import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -33,19 +25,10 @@ import java.util.List;
 @Controller
 @RequestMapping("/process/business/todoitem")
 public class BizTodoItemController extends BaseController {
-    private String prefix = "process/business/todoitem";
+    private String prefix = "/process/business/todoitem";
 
     @Autowired
     private IBizTodoItemService bizTodoItemService;
-
-    @Autowired
-    private IBizLeaveService bizLeaveService;
-
-    @Autowired
-    private TaskService taskService;
-
-    @Autowired
-    private RuntimeService runtimeService;
 
     @GetMapping("/todoListView")
     public String todoListView(ModelMap mmap) {
@@ -57,26 +40,6 @@ public class BizTodoItemController extends BaseController {
         return prefix + "/todoList";
     }
 
-    /**
-     * 加载办理弹窗
-     * @param taskId
-     * @param mmap
-     * @return
-     */
-    @GetMapping("/showVerifyDialog/{taskId}")
-    public String showVerifyDialog(@PathVariable("taskId") String taskId, ModelMap mmap,
-                                   String module, String formPageName) {
-        Task task = taskService.createTaskQuery().taskId(taskId).singleResult();
-        String processInstanceId = task.getProcessInstanceId();
-        ProcessInstance processInstance = runtimeService.createProcessInstanceQuery().processInstanceId(processInstanceId).singleResult();
-        BizLeaveVo bizLeave = bizLeaveService.selectBizLeaveById(new Long(processInstance.getBusinessKey()));
-        mmap.put("bizLeave", bizLeave);
-        mmap.put("taskId", taskId);
-//        String verifyName = task.getTaskDefinitionKey().substring(0, 1).toUpperCase() + task.getTaskDefinitionKey().substring(1);
-        return "process/" + module + "/" + formPageName;
-    }
-
-    @RequiresPermissions("process:todoitem:view")
     @GetMapping()
     public String todoitem(ModelMap mmap) {
         mmap.put("currentUser", ShiroUtils.getSysUser());
@@ -86,20 +49,18 @@ public class BizTodoItemController extends BaseController {
     /**
      * 查询待办事项列表
      */
-    @RequiresPermissions("process:todoitem:list")
     @PostMapping("/list")
     @ResponseBody
     public TableDataInfo list(BizTodoItem bizTodoItem) {
         bizTodoItem.setIsHandle("0");
-        if (!SysUser.isAdmin(ShiroUtils.getUserId())) {
-            bizTodoItem.setTodoUserId(ShiroUtils.getLoginName());
-        }
+//        if (!SysUser.isAdmin(ShiroUtils.getUserId())) {
+        bizTodoItem.setTodoUserId(ShiroUtils.getLoginName());
+//        }
         startPage();
         List<BizTodoItem> list = bizTodoItemService.selectBizTodoItemList(bizTodoItem);
         return getDataTable(list);
     }
 
-    @RequiresPermissions("process:todoitem:doneView")
     @GetMapping("/doneitemView")
     public String doneitem() {
         return prefix + "/doneitem";
@@ -108,14 +69,13 @@ public class BizTodoItemController extends BaseController {
     /**
      * 查询已办事项列表
      */
-    @RequiresPermissions("process:todoitem:doneList")
     @PostMapping("/doneList")
     @ResponseBody
     public TableDataInfo doneList(BizTodoItem bizTodoItem) {
         bizTodoItem.setIsHandle("1");
-        if (!SysUser.isAdmin(ShiroUtils.getUserId())) {
-            bizTodoItem.setTodoUserId(ShiroUtils.getLoginName());
-        }
+//        if (!SysUser.isAdmin(ShiroUtils.getUserId())) {
+        bizTodoItem.setTodoUserId(ShiroUtils.getLoginName());
+//        }
         startPage();
         List<BizTodoItem> list = bizTodoItemService.selectBizTodoItemList(bizTodoItem);
         return getDataTable(list);
@@ -124,11 +84,11 @@ public class BizTodoItemController extends BaseController {
     /**
      * 导出待办事项列表
      */
-    @RequiresPermissions("process:todoitem:export")
     @PostMapping("/export")
     @ResponseBody
     public AjaxResult export(BizTodoItem bizTodoItem) {
         bizTodoItem.setIsHandle("0");
+        bizTodoItem.setTodoUserId(ShiroUtils.getLoginName());
         List<BizTodoItem> list = bizTodoItemService.selectBizTodoItemList(bizTodoItem);
         ExcelUtil<BizTodoItem> util = new ExcelUtil<BizTodoItem>(BizTodoItem.class);
         return util.exportExcel(list, "todoitem");
@@ -137,7 +97,6 @@ public class BizTodoItemController extends BaseController {
     /**
      * 导出已办事项列表
      */
-    @RequiresPermissions("process:todoitem:doneExport")
     @PostMapping("/doneExport")
     @ResponseBody
     public AjaxResult doneExport(BizTodoItem bizTodoItem) {
@@ -158,7 +117,6 @@ public class BizTodoItemController extends BaseController {
     /**
      * 新增保存待办事项
      */
-    @RequiresPermissions("process:todoitem:add")
     @Log(title = "待办事项", businessType = BusinessType.INSERT)
     @PostMapping("/add")
     @ResponseBody
@@ -179,7 +137,6 @@ public class BizTodoItemController extends BaseController {
     /**
      * 修改保存待办事项
      */
-    @RequiresPermissions("process:todoitem:edit")
     @Log(title = "待办事项", businessType = BusinessType.UPDATE)
     @PostMapping("/edit")
     @ResponseBody
@@ -190,7 +147,6 @@ public class BizTodoItemController extends BaseController {
     /**
      * 删除待办事项
      */
-    @RequiresPermissions("process:todoitem:remove")
     @Log(title = "待办事项", businessType = BusinessType.DELETE)
     @PostMapping( "/remove")
     @ResponseBody

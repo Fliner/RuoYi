@@ -1,5 +1,6 @@
 package com.ruoyi.process.business.leave.service;
 
+
 import com.ruoyi.process.business.leave.domain.BizLeaveVo;
 import org.activiti.engine.runtime.ProcessInstance;
 
@@ -67,7 +68,7 @@ public interface IBizLeaveService {
      * @param applyUserId
      * @return
      */
-    ProcessInstance submitApply(BizLeaveVo entity, String applyUserId);
+    ProcessInstance submitApply(BizLeaveVo entity, String applyUserId, String key, Map<String, Object> variables);
 
     /**
      * 查询我的待办列表
@@ -76,14 +77,5 @@ public interface IBizLeaveService {
      */
     List<BizLeaveVo> findTodoTasks(BizLeaveVo leave, String userId);
 
-    /**
-     * 完成任务
-     * @param leave
-     * @param saveEntity
-     * @param taskId
-     * @param variables
-     */
-    void complete(BizLeaveVo leave, Boolean saveEntity, String taskId, Map<String, Object> variables);
-
-    List<BizLeaveVo> findDoneTasks(BizLeaveVo BizLeaveVo, String userId);
+    List<BizLeaveVo> findDoneTasks(BizLeaveVo bizLeaveVo, String userId);
 }

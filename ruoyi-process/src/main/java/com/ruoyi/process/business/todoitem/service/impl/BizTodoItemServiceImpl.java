@@ -3,19 +3,19 @@ package com.ruoyi.process.business.todoitem.service.impl;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.StringUtils;
-import com.ruoyi.process.business.general.mapper.ProcessMapper;
-import com.ruoyi.process.business.leave.domain.BizLeaveVo;
 import com.ruoyi.process.business.todoitem.domain.BizTodoItem;
 import com.ruoyi.process.business.todoitem.mapper.BizTodoItemMapper;
 import com.ruoyi.process.business.todoitem.service.IBizTodoItemService;
 import com.ruoyi.system.domain.SysUser;
 import com.ruoyi.system.mapper.SysUserMapper;
 import org.activiti.engine.TaskService;
+import org.activiti.engine.task.IdentityLink;
 import org.activiti.engine.task.Task;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
 import java.util.List;
 
@@ -30,13 +30,8 @@ import java.util.List;
 public class BizTodoItemServiceImpl implements IBizTodoItemService {
     @Autowired
     private BizTodoItemMapper bizTodoItemMapper;
-
     @Autowired
     private SysUserMapper userMapper;
-
-    @Autowired
-    private ProcessMapper processMapper;
-
     @Autowired
     private TaskService taskService;
 
@@ -107,10 +102,10 @@ public class BizTodoItemServiceImpl implements IBizTodoItemService {
     }
 
     @Override
-    public int insertTodoItem(String instanceId, BizLeaveVo leave, String module) {
+    public int insertTodoItem(String instanceId, String itemName, String itemContent, String module) {
         BizTodoItem todoItem = new BizTodoItem();
-        todoItem.setItemName(leave.getTitle());
-        todoItem.setItemContent(leave.getReason());
+        todoItem.setItemName(itemName);
+        todoItem.setItemContent(itemContent);
         todoItem.setIsView("0");
         todoItem.setIsHandle("0");
         todoItem.setModule(module);
@@ -125,10 +120,12 @@ public class BizTodoItemServiceImpl implements IBizTodoItemService {
 
             BizTodoItem newItem = new BizTodoItem();
             BeanUtils.copyProperties(todoItem, newItem);
+            newItem.setInstanceId(instanceId);
             newItem.setTaskId(task.getId());
             newItem.setTaskName("task" + task.getTaskDefinitionKey().substring(0, 1).toUpperCase() + task.getTaskDefinitionKey().substring(1));
             newItem.setNodeName(task.getName());
             String assignee = task.getAssignee();
+            List<IdentityLink> identityLinksForTask = taskService.getIdentityLinksForTask(task.getId());
             if (StringUtils.isNotBlank(assignee)) {
                 newItem.setTodoUserId(assignee);
                 SysUser user = userMapper.selectUserByLoginName(assignee);
@@ -136,8 +133,19 @@ public class BizTodoItemServiceImpl implements IBizTodoItemService {
                 bizTodoItemMapper.insertBizTodoItem(newItem);
                 counter++;
             } else {
-                List<String> todoUserIdList = processMapper.selectTodoUserListByTaskId(task.getId());
-                for (String todoUserId: todoUserIdList) {
+                // 查询候选用户组
+                List<String> todoUserIdList = bizTodoItemMapper.selectTodoUserListByTaskId(task.getId());
+                if (!CollectionUtils.isEmpty(todoUserIdList)) {
+                    for (String todoUserId: todoUserIdList) {
+                        SysUser todoUser = userMapper.selectUserByLoginName(todoUserId);
+                        newItem.setTodoUserId(todoUser.getLoginName());
+                        newItem.setTodoUserName(todoUser.getUserName());
+                        bizTodoItemMapper.insertBizTodoItem(newItem);
+                        counter++;
+                    }
+                } else {
+                    // 查询候选用户
+                    String todoUserId = bizTodoItemMapper.selectTodoUserByTaskId(task.getId());
                     SysUser todoUser = userMapper.selectUserByLoginName(todoUserId);
                     newItem.setTodoUserId(todoUser.getLoginName());
                     newItem.setTodoUserName(todoUser.getUserName());
@@ -147,5 +155,10 @@ public class BizTodoItemServiceImpl implements IBizTodoItemService {
             }
         }
         return counter;
+    }
+
+    @Override
+    public BizTodoItem selectBizTodoItemByCondition(String taskId, String todoUserId) {
+        return bizTodoItemMapper.selectTodoItemByCondition(taskId, todoUserId);
     }
 }

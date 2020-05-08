@@ -5,19 +5,17 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
-import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.framework.util.ShiroUtils;
+import com.ruoyi.process.business.general.service.IProcessService;
 import com.ruoyi.process.business.leave.domain.BizLeaveVo;
 import com.ruoyi.process.business.leave.service.IBizLeaveService;
 import com.ruoyi.system.domain.SysUser;
-import org.activiti.engine.IdentityService;
 import org.activiti.engine.RuntimeService;
 import org.activiti.engine.TaskService;
 import org.activiti.engine.runtime.ProcessInstance;
 import org.activiti.engine.task.Task;
 import org.apache.commons.lang3.BooleanUtils;
-import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -25,11 +23,8 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
-import java.text.SimpleDateFormat;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 请假业务Controller
@@ -44,17 +39,13 @@ public class BizLeaveController extends BaseController {
 
     @Autowired
     private IBizLeaveService bizLeaveService;
-
     @Autowired
     private TaskService taskService;
-
     @Autowired
     private RuntimeService runtimeService;
-
     @Autowired
-    private IdentityService identityService;
+    private IProcessService processService;
 
-    @RequiresPermissions("process:leave:view")
     @GetMapping()
     public String leave(ModelMap mmap) {
         mmap.put("currentUser", ShiroUtils.getSysUser());
@@ -64,7 +55,6 @@ public class BizLeaveController extends BaseController {
     /**
      * 查询请假业务列表
      */
-    @RequiresPermissions("process:leave:list")
     @PostMapping("/list")
     @ResponseBody
     public TableDataInfo list(BizLeaveVo bizLeave) {
@@ -79,7 +69,6 @@ public class BizLeaveController extends BaseController {
     /**
      * 导出请假业务列表
      */
-    @RequiresPermissions("process:leave:export")
     @PostMapping("/export")
     @ResponseBody
     public AjaxResult export(BizLeaveVo bizLeave) {
@@ -99,7 +88,6 @@ public class BizLeaveController extends BaseController {
     /**
      * 新增保存请假业务
      */
-    @RequiresPermissions("process:leave:add")
     @Log(title = "请假业务", businessType = BusinessType.INSERT)
     @PostMapping("/add")
     @ResponseBody
@@ -124,7 +112,6 @@ public class BizLeaveController extends BaseController {
     /**
      * 修改保存请假业务
      */
-    @RequiresPermissions("process:leave:edit")
     @Log(title = "请假业务", businessType = BusinessType.UPDATE)
     @PostMapping("/edit")
     @ResponseBody
@@ -135,7 +122,6 @@ public class BizLeaveController extends BaseController {
     /**
      * 删除请假业务
      */
-    @RequiresPermissions("process:leave:remove")
     @Log(title = "请假业务", businessType = BusinessType.DELETE)
     @PostMapping( "/remove")
     @ResponseBody
@@ -152,11 +138,10 @@ public class BizLeaveController extends BaseController {
     public AjaxResult submitApply(Long id) {
         BizLeaveVo leave = bizLeaveService.selectBizLeaveById(id);
         String applyUserId = ShiroUtils.getLoginName();
-        bizLeaveService.submitApply(leave, applyUserId);
+        bizLeaveService.submitApply(leave, applyUserId, "leave", new HashMap<>());
         return success();
     }
 
-    @RequiresPermissions("process:leave:todoView")
     @GetMapping("/leaveTodo")
     public String todoView() {
         return prefix + "/leaveTodo";
@@ -164,14 +149,11 @@ public class BizLeaveController extends BaseController {
 
     /**
      * 我的待办列表
-     * @param bizLeave
      * @return
      */
-    @RequiresPermissions("process:leave:taskList")
     @PostMapping("/taskList")
     @ResponseBody
     public TableDataInfo taskList(BizLeaveVo bizLeave) {
-        startPage();
         List<BizLeaveVo> list = bizLeaveService.findTodoTasks(bizLeave, ShiroUtils.getLoginName());
         return getDataTable(list);
     }
@@ -194,6 +176,14 @@ public class BizLeaveController extends BaseController {
         return prefix + "/task" + verifyName;
     }
 
+    @GetMapping("/showFormDialog/{instanceId}")
+    public String showFormDialog(@PathVariable("instanceId") String instanceId, ModelMap mmap) {
+        String businessKey = processService.findBusinessKeyByInstanceId(instanceId);
+        BizLeaveVo bizLeaveVo = bizLeaveService.selectBizLeaveById(new Long(businessKey));
+        mmap.put("bizLeave", bizLeaveVo);
+        return prefix + "/view";
+    }
+
     /**
      * 完成任务
      *
@@ -204,43 +194,11 @@ public class BizLeaveController extends BaseController {
     public AjaxResult complete(@PathVariable("taskId") String taskId, @RequestParam(value = "saveEntity", required = false) String saveEntity,
                                @ModelAttribute("preloadLeave") BizLeaveVo leave, HttpServletRequest request) {
         boolean saveEntityBoolean = BooleanUtils.toBoolean(saveEntity);
-        Map<String, Object> variables = new HashMap<String, Object>();
-        Enumeration<String> parameterNames = request.getParameterNames();
-        String comment = null;          // 批注
-        try {
-            while (parameterNames.hasMoreElements()) {
-                String parameterName = (String) parameterNames.nextElement();
-                if (parameterName.startsWith("p_")) {
-                    // 参数结构：p_B_name，p为参数的前缀，B为类型，name为属性名称
-                    String[] parameter = parameterName.split("_");
-                    if (parameter.length == 3) {
-                        String paramValue = request.getParameter(parameterName);
-                        Object value = paramValue;
-                        if (parameter[1].equals("B")) {
-                            value = BooleanUtils.toBoolean(paramValue);
-                        } else if (parameter[1].equals("DT")) {
-                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm");
-                            value = sdf.parse(paramValue);
-                        } else if (parameter[1].equals("COM")) {
-                            comment = paramValue;
-                        }
-                        variables.put(parameter[2], value);
-                    } else {
-                        throw new RuntimeException("invalid parameter for activiti variable: " + parameterName);
-                    }
-                }
-            }
-            if (StringUtils.isNotEmpty(comment)) {
-                identityService.setAuthenticatedUserId(ShiroUtils.getLoginName());
-                taskService.addComment(taskId, leave.getInstanceId(), comment);
-            }
-            bizLeaveService.complete(leave, saveEntityBoolean, taskId, variables);
-
-            return success("任务已完成");
-        } catch (Exception e) {
-            logger.error("error on complete task {}, variables={}", new Object[]{taskId, variables, e});
-            return error("完成任务失败");
+        processService.complete(taskId, leave.getInstanceId(), leave.getTitle(), leave.getReason(), "leave", new HashMap<String, Object>(), request);
+        if (saveEntityBoolean) {
+            bizLeaveService.updateBizLeave(leave);
         }
+        return success("任务已完成");
     }
 
     /**
@@ -254,7 +212,6 @@ public class BizLeaveController extends BaseController {
         return new BizLeaveVo();
     }
 
-    @RequiresPermissions("process:leave:doneView")
     @GetMapping("/leaveDone")
     public String doneView() {
         return prefix + "/leaveDone";
@@ -265,11 +222,9 @@ public class BizLeaveController extends BaseController {
      * @param bizLeave
      * @return
      */
-    @RequiresPermissions("process:leave:taskDoneList")
     @PostMapping("/taskDoneList")
     @ResponseBody
     public TableDataInfo taskDoneList(BizLeaveVo bizLeave) {
-        startPage();
         List<BizLeaveVo> list = bizLeaveService.findDoneTasks(bizLeave, ShiroUtils.getLoginName());
         return getDataTable(list);
     }

@@ -33,6 +33,7 @@
 		</div>
 	</div>
 	<th:block th:include="include :: footer" />
+	<script th:src="@{/js/activiti.js}"></script>
 	<script th:inline="javascript">
 		var prefix = ctx + "process/business/general";
 
@@ -84,7 +85,7 @@
 							title: '耗时',
 							formatter: function(value, row, index) {
 								if (!value) return '未知';
-								return $.common.formatTotalDateSub(value / 1000);
+								return formatTotalDateSub(value / 1000);
 							}
 						}]
 		    };

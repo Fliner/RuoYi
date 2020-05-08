@@ -4,12 +4,6 @@ import com.ruoyi.process.menu.domain.ActIdUser;
 
 import java.util.List;
 
-/**
- * 流程用户Mapper接口
- * 
- * @author Xianlu Tech
- * @date 2019-10-02
- */
 public interface ActIdUserMapper 
 {
     /**

@@ -1,5 +1,7 @@
 package com.ruoyi.process.menu.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.config.Global;
 import com.ruoyi.common.constant.Constants;
@@ -12,6 +14,14 @@ import com.ruoyi.common.utils.file.FileUploadUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.process.menu.domain.ProcessDefinition;
 import com.ruoyi.process.menu.service.ProcessDefinitionService;
+import org.activiti.bpmn.converter.BpmnXMLConverter;
+import org.activiti.bpmn.model.BpmnModel;
+import org.activiti.editor.constants.ModelDataJsonConstants;
+import org.activiti.editor.language.json.converter.BpmnJsonConverter;
+import org.activiti.engine.RepositoryService;
+import org.activiti.engine.repository.Model;
+import org.activiti.engine.repository.ProcessDefinitionQuery;
+import org.apache.ibatis.annotations.Param;
 import org.apache.shiro.authz.annotation.RequiresPermissions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +30,13 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.servlet.http.HttpServletResponse;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.util.List;
 
 @Controller
@@ -32,6 +49,8 @@ public class ProcessDefinitionController extends BaseController {
 
     @Autowired
     private ProcessDefinitionService processDefinitionService;
+    @Autowired
+    private RepositoryService repositoryService;
 
     @RequiresPermissions("process:definition:view")
     @GetMapping
@@ -101,6 +120,76 @@ public class ProcessDefinitionController extends BaseController {
         List<ProcessDefinition> list = processDefinitionService.listProcessDefinition(new ProcessDefinition());
         ExcelUtil<ProcessDefinition> util = new ExcelUtil<>(ProcessDefinition.class);
         return util.exportExcel(list, "流程定义数据");
+    }
+
+    @PostMapping( "/suspendOrActiveApply")
+    @ResponseBody
+    public AjaxResult suspendOrActiveApply(String id, String suspendState) {
+        processDefinitionService.suspendOrActiveApply(id, suspendState);
+        return success();
+    }
+
+    /**
+     * 读取流程资源
+     *
+     * @param processDefinitionId 流程定义ID
+     * @param resourceName        资源名称
+     */
+    @RequestMapping(value = "/readResource")
+    public void readResource(@RequestParam("pdid") String processDefinitionId, @RequestParam("resourceName") String resourceName, HttpServletResponse response)
+            throws Exception {
+        ProcessDefinitionQuery pdq = repositoryService.createProcessDefinitionQuery();
+        org.activiti.engine.repository.ProcessDefinition pd = pdq.processDefinitionId(processDefinitionId).singleResult();
+
+        // 通过接口读取
+        InputStream resourceAsStream = repositoryService.getResourceAsStream(pd.getDeploymentId(), resourceName);
+
+        // 输出资源内容到相应对象
+        byte[] b = new byte[1024];
+        int len = -1;
+        while ((len = resourceAsStream.read(b, 0, 1024)) != -1) {
+            response.getOutputStream().write(b, 0, len);
+        }
+    }
+
+    /**
+     * 转换流程定义为模型
+     * @param processDefinitionId
+     * @return
+     * @throws UnsupportedEncodingException
+     * @throws XMLStreamException
+     */
+    @PostMapping(value = "/convert2Model")
+    @ResponseBody
+    public AjaxResult convertToModel(@Param("processDefinitionId") String processDefinitionId)
+            throws UnsupportedEncodingException, XMLStreamException {
+        org.activiti.engine.repository.ProcessDefinition processDefinition = repositoryService.createProcessDefinitionQuery()
+                .processDefinitionId(processDefinitionId).singleResult();
+        InputStream bpmnStream = repositoryService.getResourceAsStream(processDefinition.getDeploymentId(),
+                processDefinition.getResourceName());
+        XMLInputFactory xif = XMLInputFactory.newInstance();
+        InputStreamReader in = new InputStreamReader(bpmnStream, "UTF-8");
+        XMLStreamReader xtr = xif.createXMLStreamReader(in);
+        BpmnModel bpmnModel = new BpmnXMLConverter().convertToBpmnModel(xtr);
+
+        BpmnJsonConverter converter = new BpmnJsonConverter();
+        ObjectNode modelNode = converter.convertToJson(bpmnModel);
+        Model modelData = repositoryService.newModel();
+        modelData.setKey(processDefinition.getKey());
+        modelData.setName(processDefinition.getResourceName());
+        modelData.setCategory(processDefinition.getDeploymentId());
+
+        ObjectNode modelObjectNode = new ObjectMapper().createObjectNode();
+        modelObjectNode.put(ModelDataJsonConstants.MODEL_NAME, processDefinition.getName());
+        modelObjectNode.put(ModelDataJsonConstants.MODEL_REVISION, 1);
+        modelObjectNode.put(ModelDataJsonConstants.MODEL_DESCRIPTION, processDefinition.getDescription());
+        modelData.setMetaInfo(modelObjectNode.toString());
+
+        repositoryService.saveModel(modelData);
+
+        repositoryService.addModelEditorSource(modelData.getId(), modelNode.toString().getBytes("utf-8"));
+
+        return success();
     }
 
 }

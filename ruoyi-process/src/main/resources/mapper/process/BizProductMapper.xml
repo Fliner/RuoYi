@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.process.business.purchase.mapper.BizProductMapper">
+    
+    <resultMap type="BizProduct" id="BizProductResult">
+        <result property="id"    column="ID"    />
+        <result property="name"    column="NAME"    />
+    </resultMap>
+
+    <sql id="selectBizProductVo">
+        select ID, NAME from biz_product
+    </sql>
+
+    <select id="selectBizProductList" parameterType="BizProduct" resultMap="BizProductResult">
+        <include refid="selectBizProductVo"/>
+        <where>  
+            <if test="name != null  and name != ''"> and NAME like concat('%', #{name}, '%')</if>
+        </where>
+    </select>
+    
+    <select id="selectBizProductById" parameterType="Long" resultMap="BizProductResult">
+        <include refid="selectBizProductVo"/>
+        where ID = #{id}
+    </select>
+
+    <select id="selectBizProductByIds" parameterType="String" resultMap="BizProductResult">
+        select * from biz_product where ID in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+        
+    <insert id="insertBizProduct" parameterType="BizProduct" useGeneratedKeys="true" keyProperty="id">
+        insert into biz_product
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null  and name != ''">NAME,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name != null  and name != ''">#{name},</if>
+         </trim>
+    </insert>
+
+    <update id="updateBizProduct" parameterType="BizProduct">
+        update biz_product
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="name != null  and name != ''">NAME = #{name},</if>
+        </trim>
+        where ID = #{id}
+    </update>
+
+    <delete id="deleteBizProductById" parameterType="Long">
+        delete from biz_product where ID = #{id}
+    </delete>
+
+    <delete id="deleteBizProductByIds" parameterType="String">
+        delete from biz_product where ID in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+    
+</mapper>
